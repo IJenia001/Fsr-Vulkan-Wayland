@@ -14,6 +14,8 @@ VARS=(
   "VK_ENABLE_BETA_EXTENSIONS=1"
   "VK_KHR_ray_tracing_pipeline=1"
   "VK_KHR_acceleration_structure=1"
+
+  "DXVK_HDR=1" # Включить HDR в DXVK
   
   # Game/Proton Support
   "DXVK_RAYTRACING=1"
