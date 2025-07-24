@@ -43,6 +43,9 @@ VARS=(
   "RADV_RAY_QUERY=1"
   "RADV_RT_MAX_LEVEL=2"
 
+  # Технологии повышения качества изображения
+  "RADV_IMAGE_SS=1"  # Super Sampling (FSR альтернатива)
+
   # Видео и медиа
   "RADV_VIDEO_DECODE=av1,vp9,hevc,avc"
   "RADV_VIDEO_ENCODE=av1"
