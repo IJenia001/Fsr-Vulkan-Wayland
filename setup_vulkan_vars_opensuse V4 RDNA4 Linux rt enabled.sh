@@ -2,7 +2,7 @@
 #
 # Vulkan Ultimate Optimizer for AMD RDNA4 (GFX12)
 # OpenSUSE Tumbleweed Edition
-# Includes GFX12-specific optimizations and next-gen features
+# Includes full GFX12 wave32 optimizations
 #
 
 # Проверка архитектуры GPU
@@ -30,8 +30,8 @@ check_gpu_architecture() {
 
 # === Оптимизированные переменные для GFX12 ===
 VARS=(
-  # Основные оптимизации
-  "RADV_PERFTEST=aco,rt,ngg,bindless_rt,wave32,rt_prim_culling"
+  # Основные оптимизации (полный набор wave32)
+  "RADV_PERFTEST=aco,rt,ngg,bindless_rt,wave32,rtwave32,pswave32,cswave32,gewave32,rt_prim_culling"
   "RADV_DEBUG=nofallback,novrsfl,noinfinitecache"
 
   # Расширенные функции GFX12
@@ -51,12 +51,14 @@ VARS=(
   "RADV_ZERO_VRAM=1"
   "RADV_DCC=2"
   "RADV_OPTIMIZE_VRAM_BANDWIDTH=1"
+  "RADV_RESIZABLE_BAR=1"
 
   # Экспериментальные функции
   "RADV_ENABLE_MESH_SHADERS=1"
   "RADV_ENABLE_TASK_SHADERS=1"
   "RADV_USE_LLVM=0"
   "RADV_GFX12_ENABLE_OBB=1"
+  "RADV_MAX_LIGHTS=256"
 )
 
 # === Установка для текущего пользователя (~/.profile) ===
