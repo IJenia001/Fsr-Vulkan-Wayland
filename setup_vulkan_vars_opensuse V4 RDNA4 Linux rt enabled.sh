@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Vulkan Environment Optimizer for AMD RDNA 4
+# Vulkan Ultimate Optimizer for AMD RDNA4 (GFX12)
 # OpenSUSE Tumbleweed Edition
-# Includes Ray Tracing, FSR and ACO optimizations
+# Includes GFX12-specific optimizations and next-gen features
 #
 
 # Проверка архитектуры GPU
@@ -17,37 +17,46 @@ check_gpu_architecture() {
         return
     fi
     
-    if [[ ! "$gpu_info" =~ "RDNA 4" ]]; then
-        echo "⚠️  Внимание: Скрипт оптимизирован для RDNA 4!"
+    # Проверка поддержки GFX12
+    local vulkan_info=$(vulkaninfo 2>/dev/null | grep "GPU id")
+    if [[ ! "$vulkan_info" =~ "GFX12" ]]; then
+        echo "⚠️  Внимание: Скрипт оптимизирован для GFX12 (RDNA4)!"
         echo "Обнаружен GPU: $gpu_info"
+        echo "Vulkan информация: $vulkan_info"
         read -p "Продолжить установку? (y/N): " confirm
         [[ "$confirm" != "y" ]] && exit 1
     fi
 }
 
-# === Оптимизированные переменные для RDNA 4 ===
+# === Оптимизированные переменные для GFX12 ===
 VARS=(
   # Основные оптимизации
-  "RADV_PERFTEST=aco,rt,ngg,bindless_rt,wave32"
-  "RADV_DEBUG=nofallback"
+  "RADV_PERFTEST=aco,rt,ngg,bindless_rt,wave32,rt_prim_culling"
+  "RADV_DEBUG=nofallback,novrsfl,noinfinitecache"
 
+  # Расширенные функции GFX12
+  "RADV_GFX12_OPTIONS=dual_rt_engines,compact_bvh"
+  "RADV_ENABLE_64B_VKRT_NODES=1"
+  
   # Оптимизации трассировки лучей
   "RADV_BINDLESS_RAYTRACING=1"
   "RADV_RAY_QUERY=1"
+  "RADV_RT_MAX_LEVEL=2"
 
-  # Технологии повышения качества изображения
-  "RADV_IMAGE_SS=1"  # Super Sampling (FSR альтернатива)
+  # Видео и медиа
+  "RADV_VIDEO_DECODE=av1,vp9,hevc,avc"
+  "RADV_VIDEO_ENCODE=av1"
 
-  # Специфичные настройки RDNA 4
-  "RADV_TUNING=rdna4"
-  "RADV_VIDEO_DECODE=av1,vp9,hevc"
-
-  # Оптимизации памяти
+  # Память и производительность
   "RADV_ZERO_VRAM=1"
+  "RADV_DCC=2"
+  "RADV_OPTIMIZE_VRAM_BANDWIDTH=1"
 
   # Экспериментальные функции
   "RADV_ENABLE_MESH_SHADERS=1"
-  "RADV_USE_LLVM=0"  # Принудительное использование ACO
+  "RADV_ENABLE_TASK_SHADERS=1"
+  "RADV_USE_LLVM=0"
+  "RADV_GFX12_ENABLE_OBB=1"
 )
 
 # === Установка для текущего пользователя (~/.profile) ===
@@ -64,7 +73,7 @@ setup_for_user() {
     cp -v "$PROFILE_FILE" "$backup_file"
     
     # Добавляем заголовок раздела
-    echo -e "\n# Vulkan Optimizations for RDNA 4 (added $(date +%Y-%m-%d))" >> "$PROFILE_FILE"
+    echo -e "\n# Vulkan GFX12 Optimizations (added $(date +%Y-%m-%d))" >> "$PROFILE_FILE"
     
     local added_count=0
     for var in "${VARS[@]}"; do
@@ -108,7 +117,7 @@ setup_for_all_users() {
     cp -v "$ENV_FILE" "$backup_file"
     
     # Добавляем заголовок раздела
-    echo -e "\n# Vulkan Optimizations for RDNA 4 (added $(date +%Y-%m-%d))" >> "$ENV_FILE"
+    echo -e "\n# Vulkan GFX12 Optimizations (added $(date +%Y-%m-%d))" >> "$ENV_FILE"
     
     local added_count=0
     for var in "${VARS[@]}"; do
@@ -144,15 +153,18 @@ check_system() {
         [[ "$confirm" != "y" ]] && exit 1
     fi
     
-    # Проверка версии Mesa
+    # Проверка версии Mesa (требуется Mesa 24.2+ для GFX12)
     local mesa_version=$(rpm -q --queryformat '%{VERSION}' mesa 2>/dev/null | cut -d. -f1-2)
     if [[ -z "$mesa_version" ]]; then
         echo "❌ Ошибка: Пакет Mesa не установлен!"
         echo "Установите: sudo zypper install Mesa"
         exit 1
-    elif [[ $(echo "$mesa_version < 24.1" | bc -l) -eq 1 ]]; then
-        echo "⚠️  Требуется обновление Mesa (текущая: $mesa_version, требуется: 24.1+)"
+    elif [[ $(echo "$mesa_version < 24.2" | bc -l) -eq 1 ]]; then
+        echo "⚠️  Требуется обновление Mesa (текущая: $mesa_version, требуется: 24.2+)"
         echo "Обновите: sudo zypper dup"
+        echo "Или добавьте репозиторий: sudo zypper addrepo -f https://download.opensuse.org/repositories/games/openSUSE_Tumbleweed/ games"
+        read -p "Продолжить установку? (y/N): " confirm
+        [[ "$confirm" != "y" ]] && exit 1
     fi
     
     # Проверка поддержки Vulkan
@@ -165,11 +177,34 @@ check_system() {
     echo -e "------------------------------------------"
 }
 
+# === Проверка поддержки GFX12 ===
+check_gfx12_support() {
+    echo -e "\n🔍 Проверка поддержки GFX12:"
+    
+    # Проверка идентификатора GPU
+    local gpu_id=$(vulkaninfo | grep "deviceName" | grep -i "gfx12")
+    if [[ -n "$gpu_id" ]]; then
+        echo "✅ Обнаружена GFX12 GPU: $gpu_id"
+    else
+        echo "⚠️  GFX12 GPU не обнаружена!"
+        echo "Текущее устройство: $(vulkaninfo | grep "deviceName" | head -1)"
+    fi
+    
+    # Проверка ключевых расширений
+    echo -e "\nПроверка расширений:"
+    vulkaninfo | grep -E \
+      "VK_AMD_ray_tracing|VK_KHR_ray_tracing_pipeline|VK_KHR_ray_query|VK_EXT_mesh_shader"
+    
+    # Проверка возможностей видео
+    echo -e "\nВидео возможности:"
+    vulkaninfo | grep -E "av1|vp9|hevc" | grep "decode" | uniq
+}
+
 # === Главное меню ===
 show_menu() {
     clear
     echo -e "\n=============================================="
-    echo " Vulkan Optimizer for AMD RDNA 4"
+    echo " Vulkan Ultimate Optimizer for AMD GFX12 (RDNA4)"
     echo " OpenSUSE Tumbleweed Edition"
     echo "=============================================="
     echo -e " Текущая система: $(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"')"
@@ -181,7 +216,8 @@ show_menu() {
     echo " 1) Установить для текущего пользователя (~/.profile)"
     echo " 2) Установить для всех пользователей (/etc/environment)"
     echo " 3) Проверить текущие настройки Vulkan"
-    echo " 4) Удалить настройки (из ~/.profile)"
+    echo " 4) Проверить поддержку GFX12"
+    echo " 5) Удалить настройки (из ~/.profile)"
     echo " q) Выход"
     echo -e "\n----------------------------------------------"
     
@@ -211,9 +247,9 @@ check_current_settings() {
     vulkaninfo | grep -E "driverName|driverInfo|apiVersion" | head -3
     
     # Проверка ключевых функций
-    echo -e "\nПроверка функций RDNA 4:"
+    echo -e "\nАктивные функции:"
     vulkaninfo | grep -E \
-      "VK_KHR_ray_tracing_pipeline|VK_KHR_shader_float_controls|RADV_PERFTEST|RADV_BINDLESS_RAYTRACING"
+      "RADV_PERFTEST|RADV_GFX12|dual_rt_engines|compact_bvh|mesh_shader"
     
     echo
 }
@@ -228,7 +264,7 @@ remove_settings() {
     cp -v "$PROFILE_FILE" "$backup_file"
     
     # Удаляем раздел с настройками
-    sed -i '/# Vulkan Optimizations for RDNA 4/,/^$/d' "$PROFILE_FILE"
+    sed -i '/# Vulkan GFX12 Optimizations/,/^$/d' "$PROFILE_FILE"
     
     # Удаляем все переменные из VARS
     for var in "${VARS[@]}"; do
@@ -258,6 +294,9 @@ main() {
                 check_current_settings
                 ;;
             4)
+                check_gfx12_support
+                ;;
+            5)
                 remove_settings
                 ;;
             q|Q)
